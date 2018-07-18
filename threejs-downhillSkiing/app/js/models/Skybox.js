@@ -20,7 +20,7 @@ export default class Skybox {
         // let box = new Mesh( geometry, material );
         // skyGroup.add(box);
 
-        let box = this.makeGradientCube(0xaeefc0, 0x538fef, 900, 900, 900, 1);
+        let box = this.makeGradientCube(0xaeefc0, 0x538fef, 3000, 3000, 3000, 1);
         skyGroup.add(box);
 
         return skyGroup;

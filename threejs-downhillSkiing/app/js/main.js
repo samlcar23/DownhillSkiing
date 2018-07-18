@@ -65,50 +65,108 @@ export default class App {
         this.scene.add(this.sky);
 
 
-        //Use SimplexNoise
-        var SimplexNoise = require('simplex-noise');
-        var simplex = new SimplexNoise(Math.random);
+        //Source for Rough sphere
+        //https://gamedevelopment.tutsplus.com/tutorials/creating-a-simple-3d-endless-runner-game-using-three-js--cms-29157
 
-        var snowTex = THREE.TextureLoader.load("images/snow.tiff");
-        snowTex.wrapS = snowTex.wrapT = THREE.RepeatWrapping;
-        snowTex.repeat.set(100, 100);
+        //cylinder for the hill side
+        var sides=100;
+        var tiers=100;
+        const groundGeom = new THREE.SphereGeometry(1000, sides, tiers);
+        const groundMat = new THREE.MeshPhongMaterial({color: 0xFFFFFF, side: THREE.DoubleSide });
+        var vertexIndex;
+        var vertexVector= new THREE.Vector3();
+        var nextVertexVector= new THREE.Vector3();
+        var firstVertexVector= new THREE.Vector3();
+        var offset= new THREE.Vector3();
+        var currentTier=1;
+        var lerpValue=.5;
+        var heightValue;
+        var maxHeight=3;
+        for(var j=1;j<tiers-2;j++){
+            currentTier=j;
+            for(var i=0;i<sides;i++){
+                vertexIndex=(currentTier*sides)+1;
+                vertexVector=groundGeom.vertices[i+vertexIndex].clone();
+                if(j%2!==0){
+                    if(i===0){
+                        firstVertexVector=vertexVector.clone();
+                    }
+                    nextVertexVector=groundGeom.vertices[i+vertexIndex+1].clone();
+                    if(i==sides-1){
+                        nextVertexVector=firstVertexVector;
+                    }
+                    lerpValue=(Math.random()*(0.75-0.25))+0.25;
+                    vertexVector.lerp(nextVertexVector,lerpValue);
+                }
+                heightValue=(Math.random()*maxHeight)-(maxHeight/2);
+                offset=vertexVector.clone().normalize().multiplyScalar(heightValue);
+                groundGeom.vertices[i+vertexIndex]=(vertexVector.add(offset));
+            }
+        }
 
-        //Plane for the hill side
-        const groundGeom = new THREE.PlaneGeometry(1000, 2000, 500, 1000);
+        //add flat shading to sphere
+        groundMat.flatShading = true;
 
-        //Make ground bumpy
-        // for (var i = 0; i < groundGeom.vertices.length; i++){
-        //   var vertex = groundGeom.vertices[i];
-        //   //var value = THREE.Math.randFloat(vertex.x, vertex.y);
-        //   var value = simplex.noise3D(vertex.x, vertex.y, vertex.z);
-        //   vertex.z = value;
-        // }
-        //
-        // //fix lighting
-        // groundGeom.computeFaceNormals();
-        // groundGeom.computeVertexNormals();
+        this.world = new THREE.Mesh(groundGeom, groundMat);
+        // groundMesh.rotateZ(THREE.Math.degToRad(90));
+        this.world.translateY(-1000);
+        this.world.rotateX(THREE.Math.degToRad(90));
+        this.scene.add(this.world);
 
-        const groundMat = new THREE.MeshPhongMaterial({map: snowTex, side: THREE.DoubleSide});
-        const groundMesh = new THREE.Mesh(groundGeom, groundMat);
-        groundMesh.rotateX(THREE.Math.degToRad(70));
-        groundMesh.receiveShadow = true;
+        //Add trees
 
-        this.scene.add(groundMesh);
+        this.addTree(new THREE.Vector3(20, 1015, 20));
+        this.addTree(new THREE.Vector3(-20, 1015, 20));
 
-
-        //TREE
-        this.tree = new Tree();
-        this.tree.translateY(15);
-        this.scene.add(this.tree);
 
         window.addEventListener('resize', () => this.resizeHandler());
         this.resizeHandler();
         requestAnimationFrame(() => this.render());
     }
 
+    addTree(p){
+        //TREE
+        this.tree = new Tree();
+        //this.tree.rotateX(THREE.Math.degToRad(180));
+        this.scene.add(this.tree);
+
+        var sphericalHelper = new THREE.Spherical();
+
+
+
+        sphericalHelper.set(p.x, p.y, p.z);
+        this.tree.position.setFromSpherical(sphericalHelper);
+
+
+        var ray = new THREE.Raycaster();
+        ray.set(new THREE.Vector3(0,-500,0), p.normalize());
+        var intersects = ray.intersectObject(this.world);
+
+        console.log(intersects);
+        console.log(intersects[0].face.normal);
+        console.log(intersects[0].point);
+
+        var newVector = new THREE.Vector3(intersects[0].face.normal.x, intersects[0].face.normal.y, intersects[0].face.normal.z);
+        var newPoint = new THREE.Vector3(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z);
+        console.log(newVector);
+
+
+        var axis = new THREE.Vector3(0, 1, 0);
+        this.tree.quaternion.setFromUnitVectors(axis, newVector.clone().normalize());
+        this.tree.position.copy(newPoint.clone().multiplyScalar(1.02));
+
+        this.world.add(this.tree);
+    }
+
+    //Game Loop
     render() {
         this.renderer.render(this.scene, this.camera);
         this.tracker.update();
+
+        this.world.rotation.x += .01;
+
+
+
         requestAnimationFrame(() => this.render());
     }
 
